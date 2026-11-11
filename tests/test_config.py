@@ -18,6 +18,30 @@ def test_valid_meilisearch_settings_with_defaults() -> None:
     assert settings.secret_header == "X-Sync-Secret"
     assert settings.mapping_file == Path("mapping.yaml")
     assert settings.meilisearch_api_key is None
+    assert settings.max_retries == 3
+    assert settings.retry_base_seconds == 0.5
+    assert settings.dead_letter_path == Path("dead-letter.jsonl")
+    assert settings.dry_run is False
+
+
+def test_retry_and_dry_run_overrides() -> None:
+    settings = Settings.from_env(
+        {
+            **VALID,
+            "STRAPI_SYNC_MAX_RETRIES": "5",
+            "STRAPI_SYNC_RETRY_BASE_SECONDS": "0.1",
+            "STRAPI_SYNC_DEAD_LETTER_PATH": "dlq/events.jsonl",
+            "STRAPI_SYNC_DRY_RUN": "true",
+            "STRAPI_URL": "http://localhost:1337",
+            "STRAPI_API_TOKEN": "tok",
+        }
+    )
+    assert settings.max_retries == 5
+    assert settings.retry_base_seconds == 0.1
+    assert settings.dead_letter_path == Path("dlq/events.jsonl")
+    assert settings.dry_run is True
+    assert settings.strapi_url == "http://localhost:1337"
+    assert settings.strapi_api_token == "tok"
 
 
 def test_valid_webhook_settings_with_overrides() -> None:

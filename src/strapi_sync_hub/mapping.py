@@ -12,7 +12,7 @@ VERSION_FIELD = "_source_updated_at"
 RESERVED_TARGET_FIELDS = frozenset({"id", VERSION_FIELD})
 
 _INDEX_NAME = re.compile(r"^[A-Za-z0-9_-]+$")
-_CONTENT_TYPE_KEYS = {"index", "id_field", "fields"}
+_CONTENT_TYPE_KEYS = {"index", "id_field", "fields", "api_id"}
 
 
 @dataclass(frozen=True)
@@ -21,6 +21,8 @@ class ContentTypeMapping:
     index: str
     id_field: str
     fields: dict[str, str]
+    # Strapi REST plural (or custom) path segment used by full-reindex: GET /api/{api_id}
+    api_id: str
 
     def document_id(self, entry: dict[str, Any]) -> str:
         value = entry.get(self.id_field)
@@ -97,13 +99,19 @@ def _parse_content_type(name: object, body: object, errors: list[str]) -> Conten
     id_field = body.get("id_field", "id")
     if not isinstance(id_field, str) or not id_field:
         errors.append(f"{prefix}: 'id_field' must be a non-empty string")
+    api_id = body.get("api_id", index if isinstance(index, str) else "")
+    if not isinstance(api_id, str) or not _INDEX_NAME.match(api_id):
+        errors.append(f"{prefix}: 'api_id' must be a string of letters, digits, '-' and '_'")
     fields = _parse_fields(name, body.get("fields"), errors)
 
     if len(errors) > before:
         return None
     assert isinstance(index, str)
     assert isinstance(id_field, str)
-    return ContentTypeMapping(content_type=name, index=index, id_field=id_field, fields=fields)
+    assert isinstance(api_id, str)
+    return ContentTypeMapping(
+        content_type=name, index=index, id_field=id_field, fields=fields, api_id=api_id
+    )
 
 
 def _parse_fields(name: str, raw: object, errors: list[str]) -> dict[str, str]:
