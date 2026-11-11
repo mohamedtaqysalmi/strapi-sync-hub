@@ -1,0 +1,34 @@
+name: Bug report
+description: Something does not work as documented
+labels: [bug]
+body:
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: What you did, what you expected, what you got instead.
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Steps to reproduce
+      description: A minimal sequence or payload that triggers it. Remove any real data and secrets.
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: strapi-sync-hub version
+    validations:
+      required: true
+  - type: input
+    id: environment
+    attributes:
+      label: Environment
+      description: Python version, OS, Strapi and Meilisearch versions if relevant.
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs
+      render: text
