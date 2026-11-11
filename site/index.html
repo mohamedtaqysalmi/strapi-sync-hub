@@ -3,15 +3,15 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>strapi-sync-hub — webhook sync to Meilisearch</title>
+    <title>strapi-sync-hub: Strapi webhooks to Meilisearch</title>
     <meta
       name="description"
-      content="Receive Strapi webhooks, map content types in YAML, and sync to Meilisearch or a JSON webhook with retries, dead-letter, and full reindex."
+      content="A small FastAPI service that receives Strapi webhooks, maps fields from YAML and upserts into Meilisearch or a JSON webhook, with retries and a dead-letter log."
     />
     <meta property="og:title" content="strapi-sync-hub" />
     <meta
       property="og:description"
-      content="Strapi webhook receiver with YAML mapping, idempotent upserts, retries, and a browser mapping generator."
+      content="Strapi webhooks to Meilisearch, with YAML mapping, idempotent upserts, retries and a dead-letter log."
     />
     <meta property="og:type" content="website" />
     <meta property="og:url" content="https://mohamedtaqysalmi.github.io/strapi-sync-hub/" />
@@ -20,155 +20,362 @@
     <meta name="twitter:title" content="strapi-sync-hub" />
     <meta
       name="twitter:description"
-      content="Strapi → Meilisearch sync hub with mapping generator."
+      content="Strapi webhooks to Meilisearch, with YAML mapping, idempotent upserts, retries and a dead-letter log."
     />
     <meta name="twitter:image" content="https://mohamedtaqysalmi.github.io/strapi-sync-hub/og.svg" />
     <link rel="icon" href="favicon.svg" type="image/svg+xml" />
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link
-      href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&family=Manrope:wght@400;500;600;700&family=Oswald:wght@500;600&display=swap"
-      rel="stylesheet"
-    />
-    <link rel="stylesheet" href="styles.css" />
+    <link rel="stylesheet" href="base.css" />
+    <link rel="stylesheet" href="page.css" />
   </head>
   <body>
-    <a class="skip-link" href="#generator">Skip to mapping generator</a>
-    <header class="bar">
-      <strong class="logo">strapi-sync-hub</strong>
-      <nav aria-label="Primary">
-        <a href="#architecture">Architecture</a>
-        <a href="#generator">Generator</a>
-        <a href="#config">Config</a>
+    <a class="skip-link" href="#demo">Skip to the mapping generator</a>
+
+    <header class="wrap site-header">
+      <a class="brand" href="./">
+        <img src="favicon.svg" alt="" width="28" height="28" />
+        strapi-sync-hub
+      </a>
+      <nav class="site-nav" aria-label="Primary">
+        <a href="#demo">Generator</a>
+        <a href="#quickstart">Quickstart</a>
+        <a href="#how">How it works</a>
         <a href="https://github.com/mohamedtaqysalmi/strapi-sync-hub">GitHub</a>
       </nav>
     </header>
 
-    <section class="hero" aria-label="Introduction">
-      <div class="hero-grid" aria-hidden="true"></div>
-      <div class="hero-copy">
-        <p class="signal">webhook · map · upsert</p>
-        <h1>strapi-sync-hub</h1>
-        <p class="lede">
-          A small FastAPI service that takes Strapi entry webhooks, maps fields from YAML, and
-          upserts into Meilisearch (or a JSON webhook) with retries, a dead-letter log, dry-run,
-          and full reindex.
-        </p>
-        <div class="cta-row">
-          <a class="btn primary" href="#generator">Map a content type</a>
-          <a class="btn ghost" href="https://github.com/mohamedtaqysalmi/strapi-sync-hub"
-            >Open the repo</a
-          >
-        </div>
-      </div>
-    </section>
-
     <main>
-      <section class="block" id="architecture" aria-labelledby="arch-title">
-        <h2 id="arch-title">Architecture</h2>
+      <section class="wrap hero">
+        <p class="eyebrow">FastAPI · Strapi · Meilisearch</p>
+        <h1>Keep a search index in step with Strapi, one webhook at a time.</h1>
         <p class="lede">
-          Strapi fires entry events. The hub verifies a shared secret, maps the model, then writes
-          to the target. Failed writes retry with backoff; exhausted attempts land in a JSONL
-          dead-letter file.
+          Strapi can tell you when an entry changes, but it will not keep Meilisearch up to date
+          for you. I wrote a small service that takes those webhooks, picks and renames fields
+          from a YAML file, and writes the result to Meilisearch or to a URL of your choice.
+          Duplicate and out-of-order events do not overwrite newer content.
         </p>
-        <pre class="flow" aria-label="Sync flow diagram"><code>Strapi webhook
-    │  X-Sync-Secret
-    ▼
-verify → map YAML → upsert / delete
-    │                    │
-    │              retry × N
-    │                    │
-    └────────────► dead-letter.jsonl
-                         │
-              Meilisearch / JSON webhook</code></pre>
-        <ul class="facts">
-          <li>Idempotent upserts compare <code>_source_updated_at</code> and skip stale events.</li>
-          <li>Drafts (<code>publishedAt: null</code>) never become searchable.</li>
-          <li>Contract fixtures are hand-written from Strapi docs, not recorded from a live CMS.</li>
-        </ul>
+        <div class="actions">
+          <a class="btn btn-primary" href="#demo">Map a content type</a>
+          <a class="btn" href="https://github.com/mohamedtaqysalmi/strapi-sync-hub">View the code</a>
+        </div>
+        <dl class="facts">
+          <div>
+            <dt>release</dt>
+            <dd>v0.1.0</dd>
+          </div>
+          <div>
+            <dt>events handled</dt>
+            <dd>5</dd>
+          </div>
+          <div>
+            <dt>targets</dt>
+            <dd>2</dd>
+          </div>
+          <div>
+            <dt>license</dt>
+            <dd>MIT</dd>
+          </div>
+        </dl>
       </section>
 
-      <section class="block" id="generator" aria-labelledby="gen-title">
-        <h2 id="gen-title">Map your content type</h2>
-        <p class="lede">
-          Build a mapping snippet in the browser. Nothing leaves this page; copy the YAML into
-          <code>mapping.yaml</code>.
-        </p>
-        <form id="map-form" class="generator" autocomplete="off">
-          <div class="field">
-            <label for="model">Strapi model</label>
-            <input id="model" name="model" value="article" required />
-          </div>
-          <div class="field">
-            <label for="index">Target index</label>
-            <input id="index" name="index" value="articles" required pattern="[A-Za-z0-9_-]+" />
-          </div>
-          <div class="field">
-            <label for="api_id">API id (reindex path)</label>
-            <input id="api_id" name="api_id" value="articles" pattern="[A-Za-z0-9_-]+" />
-          </div>
-          <div class="field">
-            <label for="id_field">Document id field</label>
-            <input id="id_field" name="id_field" value="documentId" required />
-          </div>
-          <div class="field full">
-            <label for="fields">Fields (one per line: <code>source</code> or <code>source: target</code>)</label>
-            <textarea id="fields" name="fields" rows="5">title
+      <section class="wrap section" id="demo" aria-labelledby="demo-title">
+        <div class="section-head">
+          <h2 id="demo-title">Map your content type</h2>
+        </div>
+        <div class="section-body flow">
+          <p>
+            Describe one Strapi content type and get the <code>mapping.yaml</code> block for it.
+            This runs in your browser and sends nothing anywhere. The same rules as the hub's
+            loader are applied, and a test feeds this script's output to that loader.
+          </p>
+          <form id="map-form" class="panel generator-form" autocomplete="off">
+            <div>
+              <label for="model">Strapi model</label>
+              <input id="model" name="model" type="text" value="article" spellcheck="false" />
+              <p class="hint">The <code>model</code> value in the webhook payload.</p>
+            </div>
+            <div>
+              <label for="index">Meilisearch index</label>
+              <input id="index" name="index" type="text" value="articles" spellcheck="false" />
+            </div>
+            <div>
+              <label for="api_id">Content API path (for reindex)</label>
+              <input id="api_id" name="api_id" type="text" value="articles" spellcheck="false" />
+              <p class="hint">Used as <code>GET /api/&lt;path&gt;</code>. Leave empty to reuse the index name.</p>
+            </div>
+            <div>
+              <label for="id_field">Document id field</label>
+              <input id="id_field" name="id_field" type="text" value="documentId" spellcheck="false" />
+              <p class="hint">Strapi 5 uses <code>documentId</code>. Strapi 4 only has <code>id</code>.</p>
+            </div>
+            <div class="full">
+              <label for="fields">Fields to index</label>
+              <textarea id="fields" name="fields" rows="5" spellcheck="false">title
 slug
 body: content
 publishedAt: published_at</textarea>
+              <p class="hint">One per line. <code>name</code> keeps the name, <code>source: target</code> renames it.</p>
+            </div>
+          </form>
+          <ul class="problems" id="problems" aria-live="polite"></ul>
+          <div class="code">
+            <pre id="yaml-out"><code>content_types:
+  article:
+    index: articles
+    api_id: articles
+    id_field: documentId
+    fields:
+      title: title
+      slug: slug
+      body: content
+      publishedAt: published_at
+</code></pre>
+            <button class="btn btn-small copy" type="button" id="copy-yaml" data-copy="yaml-out">Copy</button>
           </div>
-          <div class="actions full">
-            <button type="submit" class="btn primary">Generate YAML</button>
-            <button type="button" class="btn ghost" id="copy-yaml">Copy</button>
-          </div>
-        </form>
-        <pre class="yaml-out" id="yaml-out" tabindex="0" aria-live="polite"></pre>
-        <p class="hint" id="gen-status" role="status"></p>
+          <p class="hint" id="gen-status" role="status">
+            To map more than one content type, add the extra blocks under the same <code>content_types</code> key.
+          </p>
+          <noscript><p class="callout">The generator needs JavaScript. The rest of the page does not.</p></noscript>
+        </div>
       </section>
 
-      <section class="block" id="config" aria-labelledby="cfg-title">
-        <h2 id="cfg-title">Config examples</h2>
-        <p class="lede">Environment variables validated at startup. Bad config stops the process.</p>
-        <div class="code-pair">
-          <div>
-            <h3>Meilisearch target</h3>
-            <pre><code>STRAPI_SYNC_SECRET=…at-least-16-chars…
+      <section class="wrap section" aria-labelledby="status-title">
+        <div class="section-head">
+          <h2 id="status-title">What works</h2>
+        </div>
+        <div class="section-body flow">
+          <p>
+            This is the state of <code>main</code>. Everything marked "works" is covered by tests
+            that run without a network.
+          </p>
+          <ul class="status">
+            <li>
+              <span class="tag tag-ok">works</span>
+              <span>Receiver for <code>entry.create</code>, <code>update</code>, <code>publish</code>, <code>unpublish</code> and <code>delete</code>, with a shared-secret header compared in constant time</span>
+            </li>
+            <li>
+              <span class="tag tag-ok">works</span>
+              <span>YAML mapping with field selection and renaming. Errors name the content type and field.</span>
+            </li>
+            <li>
+              <span class="tag tag-ok">works</span>
+              <span>Meilisearch and JSON webhook targets. Upserts compare <code>updatedAt</code>, so a repeat or an older event is skipped.</span>
+            </li>
+            <li>
+              <span class="tag tag-ok">works</span>
+              <span>Retries with exponential backoff, then a JSONL dead-letter file</span>
+            </li>
+            <li>
+              <span class="tag tag-ok">works</span>
+              <span>Dry run, and a <code>reindex</code> command that pulls published entries from the Content API</span>
+            </li>
+            <li>
+              <span class="tag tag-partial">partial</span>
+              <span>Contract tests use payloads I wrote from the Strapi docs. They have not been recorded from a running Strapi.</span>
+            </li>
+            <li>
+              <span class="tag tag-partial">partial</span>
+              <span>The Docker Compose demo uses a small Strapi-shaped stand-in, not a real Strapi.</span>
+            </li>
+            <li>
+              <span class="tag tag-no">not done</span>
+              <span>Dead-letter replay, tombstones for deletes, waiting for Meilisearch tasks to finish, and a PyPI release</span>
+            </li>
+          </ul>
+        </div>
+      </section>
+
+      <section class="wrap section" id="quickstart" aria-labelledby="quick-title">
+        <div class="section-head">
+          <h2 id="quick-title">Quickstart</h2>
+        </div>
+        <div class="section-body flow">
+          <p>
+            Settings come from environment variables and are checked at startup. A bad value stops
+            the process and lists everything that is wrong. Dry run logs what would be written and
+            never calls Meilisearch, so you can try this without one running.
+          </p>
+          <div class="code">
+            <pre id="quickstart-code"><code>git clone https://github.com/mohamedtaqysalmi/strapi-sync-hub
+cd strapi-sync-hub
+python -m venv .venv &amp;&amp; . .venv/bin/activate
+pip install -e .
+cp mapping.example.yaml mapping.yaml
+export STRAPI_SYNC_SECRET="replace-with-16-or-more-characters"
+export STRAPI_SYNC_TARGET=meilisearch
+export MEILISEARCH_URL=http://localhost:7700
+export STRAPI_SYNC_DRY_RUN=true
+uvicorn --factory strapi_sync_hub.main:create_app_from_env</code></pre>
+            <button class="btn btn-small copy" type="button" data-copy="quickstart-code">Copy</button>
+          </div>
+          <p>
+            In Strapi, add a webhook that points at <code>/webhook</code>, add a header
+            <code>X-Sync-Secret</code> with the same secret, and tick the entry events you want.
+            Settings for a real Meilisearch, and the reindex command:
+          </p>
+          <div class="code">
+              <pre id="env-code"><code>STRAPI_SYNC_SECRET=...
 STRAPI_SYNC_TARGET=meilisearch
 MEILISEARCH_URL=http://localhost:7700
-MEILISEARCH_API_KEY=
+MEILISEARCH_API_KEY=...
 STRAPI_SYNC_MAPPING=mapping.yaml
 STRAPI_SYNC_MAX_RETRIES=3
 STRAPI_SYNC_DEAD_LETTER_PATH=dead-letter.jsonl</code></pre>
-            <button type="button" class="btn ghost copy-btn" data-copy-prev>Copy</button>
+              <button class="btn btn-small copy" type="button" data-copy="env-code">Copy</button>
           </div>
-          <div>
-            <h3>Full reindex</h3>
-            <pre><code>STRAPI_URL=http://localhost:1337
-STRAPI_API_TOKEN=…
-strapi-sync-hub reindex
-strapi-sync-hub reindex --dry-run --content-type article</code></pre>
-            <button type="button" class="btn ghost copy-btn" data-copy-prev>Copy</button>
+          <div class="code">
+              <pre id="reindex-code"><code>export STRAPI_URL=http://localhost:1337
+export STRAPI_API_TOKEN=...
+strapi-sync-hub reindex --dry-run
+strapi-sync-hub reindex --content-type article</code></pre>
+              <button class="btn btn-small copy" type="button" data-copy="reindex-code">Copy</button>
+          </div>
+          <p>
+            The Compose demo in <a href="https://github.com/mohamedtaqysalmi/strapi-sync-hub/tree/main/demo">demo/</a>
+            starts Meilisearch, the hub and the stand-in CMS.
+          </p>
+          <div class="badges">
+            <a href="https://github.com/mohamedtaqysalmi/strapi-sync-hub/actions/workflows/ci.yml"
+              ><img
+                alt="CI status"
+                width="110"
+                height="20"
+                src="https://github.com/mohamedtaqysalmi/strapi-sync-hub/actions/workflows/ci.yml/badge.svg"
+            /></a>
           </div>
         </div>
       </section>
 
-      <section class="block" aria-labelledby="run-title">
-        <h2 id="run-title">Run the demo</h2>
-        <pre><code>cd demo
-docker compose up --build</code></pre>
-        <button type="button" class="btn ghost copy-btn" data-copy-prev>Copy</button>
-        <p class="hint">
-          Compose uses a Strapi-shaped stand-in plus real Meilisearch. See
-          <a href="https://github.com/mohamedtaqysalmi/strapi-sync-hub/tree/main/demo">demo/README.md</a>.
-        </p>
+      <section class="wrap section" id="how" aria-labelledby="how-title">
+        <div class="section-head">
+          <h2 id="how-title">How it works</h2>
+        </div>
+        <div class="section-body flow">
+          <p>
+            The secret is checked before the body is read. Drafts are skipped, unpublish and
+            delete remove the document, and everything else is written with the entry's
+            <code>updatedAt</code> stored beside it. A write that is not newer than what the
+            target holds is dropped. If the target keeps failing, the event is appended to the
+            dead-letter file and the webhook answers 200 so Strapi does not keep retrying.
+          </p>
+          <pre class="diagram" role="img" aria-label="Flow: a Strapi webhook is checked for the shared secret, mapped from YAML, then written to the target through a retrying wrapper. Exhausted retries go to the dead-letter file. The reindex command reads the Content API and joins at the mapping step.">Strapi webhook ── X-Sync-Secret ──► verify
+                                      │
+                                      ▼
+Content API ◄── reindex CLI ──►   map from YAML
+                                      │
+                                      ▼
+                             retry with backoff
+                               │            │
+                            ok │            │ attempts used up
+                               ▼            ▼
+              Meilisearch or JSON webhook   dead-letter.jsonl</pre>
+        </div>
+      </section>
+
+      <section class="wrap section" aria-labelledby="ref-title">
+        <div class="section-head">
+          <h2 id="ref-title">Settings</h2>
+        </div>
+        <div class="section-body flow">
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th scope="col">Variable</th>
+                  <th scope="col">Meaning</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr><td><code>STRAPI_SYNC_SECRET</code></td><td>Shared secret, at least 16 characters</td></tr>
+                <tr><td><code>STRAPI_SYNC_SECRET_HEADER</code></td><td>Header that carries it, default <code>X-Sync-Secret</code></td></tr>
+                <tr><td><code>STRAPI_SYNC_MAPPING</code></td><td>Path to the mapping YAML, default <code>mapping.yaml</code></td></tr>
+                <tr><td><code>STRAPI_SYNC_TARGET</code></td><td><code>meilisearch</code> or <code>webhook</code></td></tr>
+                <tr><td><code>MEILISEARCH_URL</code>, <code>MEILISEARCH_API_KEY</code></td><td>Meilisearch target</td></tr>
+                <tr><td><code>WEBHOOK_TARGET_URL</code>, <code>WEBHOOK_TARGET_TOKEN</code></td><td>JSON webhook target</td></tr>
+                <tr><td><code>STRAPI_SYNC_MAX_RETRIES</code></td><td>Attempts per target call, default 3</td></tr>
+                <tr><td><code>STRAPI_SYNC_RETRY_BASE_SECONDS</code></td><td>Backoff base, default 0.5</td></tr>
+                <tr><td><code>STRAPI_SYNC_DEAD_LETTER_PATH</code></td><td>JSONL file for failed events, default <code>dead-letter.jsonl</code></td></tr>
+                <tr><td><code>STRAPI_SYNC_DRY_RUN</code></td><td><code>true</code> to log writes without making them</td></tr>
+                <tr><td><code>STRAPI_URL</code>, <code>STRAPI_API_TOKEN</code></td><td>Used by <code>reindex</code></td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <section class="wrap section" aria-labelledby="built-title">
+        <div class="section-head">
+          <h2 id="built-title">How I built it</h2>
+        </div>
+        <div class="section-body">
+          <div class="notes">
+            <article>
+              <h3>The mapping lives in YAML</h3>
+              <p>
+                Content types change in the CMS more often than the service does. Keeping the
+                field list out of code means a rename does not need a release. The cost is that a
+                missing field is skipped quietly, so you only notice when a search comes back empty.
+              </p>
+            </article>
+            <article>
+              <h3>Idempotency from a stored timestamp</h3>
+              <p>
+                Every document carries the <code>updatedAt</code> it was built from. That avoids
+                an outbox table, but the check is a read followed by a write, so two simultaneous
+                deliveries for one document can still race.
+              </p>
+            </article>
+            <article>
+              <h3>Park failures instead of failing the webhook</h3>
+              <p>
+                After the retries are used up the event goes to a JSONL file and the hub answers
+                200. Losing the payload seemed worse than a quiet file. There is no replay command
+                yet, so someone has to look at that file.
+              </p>
+            </article>
+            <article>
+              <h3>A stand-in instead of a full Strapi in the demo</h3>
+              <p>
+                Bootstrapping a real Strapi with an admin user and content types is a lot of setup
+                for a demo, so the Compose file runs a small stand-in that speaks the same
+                envelope. That is why the contract tests are labelled as written from the docs.
+              </p>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <section class="wrap section" aria-labelledby="limits-title">
+        <div class="section-head">
+          <h2 id="limits-title">Limits and roadmap</h2>
+        </div>
+        <div class="section-body flow">
+          <ul>
+            <li>An update that arrives after a delete can bring the document back, because deletes are not recorded.</li>
+            <li>The webhook target remembers the newest <code>updatedAt</code> in memory only, so a restart forgets it.</li>
+            <li>A 202 from Meilisearch means the task was queued. The hub does not wait to see it succeed.</li>
+          </ul>
+          <p>
+            Open work is in the
+            <a href="https://github.com/mohamedtaqysalmi/strapi-sync-hub/issues">issue list</a>. To
+            help, start with
+            <a href="https://github.com/mohamedtaqysalmi/strapi-sync-hub/blob/main/CONTRIBUTING.md">CONTRIBUTING.md</a>.
+          </p>
+        </div>
       </section>
     </main>
 
-    <footer class="bar foot">
-      <span>MIT · Mohamed-Taqy Salmi</span>
-      <a href="https://github.com/mohamedtaqysalmi/strapi-sync-hub">Source on GitHub</a>
+    <footer class="wrap site-footer">
+      <p>
+        Built by <a href="https://github.com/mohamedtaqysalmi">Mohamed-Taqy Salmi</a> ·
+        <a href="https://www.linkedin.com/in/mohamedtaqysalmi">LinkedIn</a>
+      </p>
+      <p>
+        MIT licensed · <a href="https://github.com/mohamedtaqysalmi/strapi-sync-hub">Source on GitHub</a>
+      </p>
     </footer>
-    <script src="app.js"></script>
+
+    <script src="base.js" defer></script>
+    <script src="generator.js" defer></script>
+    <script src="app.js" defer></script>
   </body>
 </html>

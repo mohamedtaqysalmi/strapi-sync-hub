@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Rebuilt the GitHub Pages site on the shared page style, with a mapping generator whose output is tested against the real config loader.
+
 ## [0.1.0] - 2026-11-11
 
 ### Added
