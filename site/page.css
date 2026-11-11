@@ -1,0 +1,24 @@
+/* Layout for the mapping generator only. Colours, fonts and everything else come from base.css. */
+
+.generator-form {
+  display: grid;
+  gap: 0.75rem;
+}
+.generator-form .full {
+  grid-column: 1 / -1;
+}
+
+.problems {
+  margin: 0;
+  padding-left: 1.25rem;
+  font-size: var(--step--1);
+}
+.problems:empty {
+  display: none;
+}
+
+@media (min-width: 44rem) {
+  .generator-form {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
