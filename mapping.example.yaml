@@ -1,0 +1,11 @@
+# Keys under content_types are the "model" value in the Strapi webhook payload.
+content_types:
+  article:
+    index: articles
+    # Strapi 5 uses documentId; Strapi 4 entries only have id.
+    id_field: documentId
+    fields:
+      title: title          # same name in the index
+      slug: slug
+      body: content         # renamed: body in Strapi, content in the index
+      publishedAt: published_at
