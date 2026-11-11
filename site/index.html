@@ -1,0 +1,174 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>strapi-sync-hub — webhook sync to Meilisearch</title>
+    <meta
+      name="description"
+      content="Receive Strapi webhooks, map content types in YAML, and sync to Meilisearch or a JSON webhook with retries, dead-letter, and full reindex."
+    />
+    <meta property="og:title" content="strapi-sync-hub" />
+    <meta
+      property="og:description"
+      content="Strapi webhook receiver with YAML mapping, idempotent upserts, retries, and a browser mapping generator."
+    />
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://mohamedtaqysalmi.github.io/strapi-sync-hub/" />
+    <meta property="og:image" content="https://mohamedtaqysalmi.github.io/strapi-sync-hub/og.svg" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="strapi-sync-hub" />
+    <meta
+      name="twitter:description"
+      content="Strapi → Meilisearch sync hub with mapping generator."
+    />
+    <meta name="twitter:image" content="https://mohamedtaqysalmi.github.io/strapi-sync-hub/og.svg" />
+    <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&family=Manrope:wght@400;500;600;700&family=Oswald:wght@500;600&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <a class="skip-link" href="#generator">Skip to mapping generator</a>
+    <header class="bar">
+      <strong class="logo">strapi-sync-hub</strong>
+      <nav aria-label="Primary">
+        <a href="#architecture">Architecture</a>
+        <a href="#generator">Generator</a>
+        <a href="#config">Config</a>
+        <a href="https://github.com/mohamedtaqysalmi/strapi-sync-hub">GitHub</a>
+      </nav>
+    </header>
+
+    <section class="hero" aria-label="Introduction">
+      <div class="hero-grid" aria-hidden="true"></div>
+      <div class="hero-copy">
+        <p class="signal">webhook · map · upsert</p>
+        <h1>strapi-sync-hub</h1>
+        <p class="lede">
+          A small FastAPI service that takes Strapi entry webhooks, maps fields from YAML, and
+          upserts into Meilisearch (or a JSON webhook) with retries, a dead-letter log, dry-run,
+          and full reindex.
+        </p>
+        <div class="cta-row">
+          <a class="btn primary" href="#generator">Map a content type</a>
+          <a class="btn ghost" href="https://github.com/mohamedtaqysalmi/strapi-sync-hub"
+            >Open the repo</a
+          >
+        </div>
+      </div>
+    </section>
+
+    <main>
+      <section class="block" id="architecture" aria-labelledby="arch-title">
+        <h2 id="arch-title">Architecture</h2>
+        <p class="lede">
+          Strapi fires entry events. The hub verifies a shared secret, maps the model, then writes
+          to the target. Failed writes retry with backoff; exhausted attempts land in a JSONL
+          dead-letter file.
+        </p>
+        <pre class="flow" aria-label="Sync flow diagram"><code>Strapi webhook
+    │  X-Sync-Secret
+    ▼
+verify → map YAML → upsert / delete
+    │                    │
+    │              retry × N
+    │                    │
+    └────────────► dead-letter.jsonl
+                         │
+              Meilisearch / JSON webhook</code></pre>
+        <ul class="facts">
+          <li>Idempotent upserts compare <code>_source_updated_at</code> and skip stale events.</li>
+          <li>Drafts (<code>publishedAt: null</code>) never become searchable.</li>
+          <li>Contract fixtures are hand-written from Strapi docs, not recorded from a live CMS.</li>
+        </ul>
+      </section>
+
+      <section class="block" id="generator" aria-labelledby="gen-title">
+        <h2 id="gen-title">Map your content type</h2>
+        <p class="lede">
+          Build a mapping snippet in the browser. Nothing leaves this page; copy the YAML into
+          <code>mapping.yaml</code>.
+        </p>
+        <form id="map-form" class="generator" autocomplete="off">
+          <div class="field">
+            <label for="model">Strapi model</label>
+            <input id="model" name="model" value="article" required />
+          </div>
+          <div class="field">
+            <label for="index">Target index</label>
+            <input id="index" name="index" value="articles" required pattern="[A-Za-z0-9_-]+" />
+          </div>
+          <div class="field">
+            <label for="api_id">API id (reindex path)</label>
+            <input id="api_id" name="api_id" value="articles" pattern="[A-Za-z0-9_-]+" />
+          </div>
+          <div class="field">
+            <label for="id_field">Document id field</label>
+            <input id="id_field" name="id_field" value="documentId" required />
+          </div>
+          <div class="field full">
+            <label for="fields">Fields (one per line: <code>source</code> or <code>source: target</code>)</label>
+            <textarea id="fields" name="fields" rows="5">title
+slug
+body: content
+publishedAt: published_at</textarea>
+          </div>
+          <div class="actions full">
+            <button type="submit" class="btn primary">Generate YAML</button>
+            <button type="button" class="btn ghost" id="copy-yaml">Copy</button>
+          </div>
+        </form>
+        <pre class="yaml-out" id="yaml-out" tabindex="0" aria-live="polite"></pre>
+        <p class="hint" id="gen-status" role="status"></p>
+      </section>
+
+      <section class="block" id="config" aria-labelledby="cfg-title">
+        <h2 id="cfg-title">Config examples</h2>
+        <p class="lede">Environment variables validated at startup. Bad config stops the process.</p>
+        <div class="code-pair">
+          <div>
+            <h3>Meilisearch target</h3>
+            <pre><code>STRAPI_SYNC_SECRET=…at-least-16-chars…
+STRAPI_SYNC_TARGET=meilisearch
+MEILISEARCH_URL=http://localhost:7700
+MEILISEARCH_API_KEY=
+STRAPI_SYNC_MAPPING=mapping.yaml
+STRAPI_SYNC_MAX_RETRIES=3
+STRAPI_SYNC_DEAD_LETTER_PATH=dead-letter.jsonl</code></pre>
+            <button type="button" class="btn ghost copy-btn" data-copy-prev>Copy</button>
+          </div>
+          <div>
+            <h3>Full reindex</h3>
+            <pre><code>STRAPI_URL=http://localhost:1337
+STRAPI_API_TOKEN=…
+strapi-sync-hub reindex
+strapi-sync-hub reindex --dry-run --content-type article</code></pre>
+            <button type="button" class="btn ghost copy-btn" data-copy-prev>Copy</button>
+          </div>
+        </div>
+      </section>
+
+      <section class="block" aria-labelledby="run-title">
+        <h2 id="run-title">Run the demo</h2>
+        <pre><code>cd demo
+docker compose up --build</code></pre>
+        <button type="button" class="btn ghost copy-btn" data-copy-prev>Copy</button>
+        <p class="hint">
+          Compose uses a Strapi-shaped stand-in plus real Meilisearch. See
+          <a href="https://github.com/mohamedtaqysalmi/strapi-sync-hub/tree/main/demo">demo/README.md</a>.
+        </p>
+      </section>
+    </main>
+
+    <footer class="bar foot">
+      <span>MIT · Mohamed-Taqy Salmi</span>
+      <a href="https://github.com/mohamedtaqysalmi/strapi-sync-hub">Source on GitHub</a>
+    </footer>
+    <script src="app.js"></script>
+  </body>
+</html>

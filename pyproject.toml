@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "strapi-sync-hub"
-version = "0.0.1"
+version = "0.1.0"
 description = "Sync Strapi content to Meilisearch and webhook targets, driven by Strapi webhooks."
 readme = "README.md"
 requires-python = ">=3.11"
@@ -18,7 +18,7 @@ dependencies = [
     "uvicorn>=0.30",
 ]
 classifiers = [
-    "Development Status :: 1 - Planning",
+    "Development Status :: 4 - Beta",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
@@ -31,6 +31,9 @@ classifiers = [
 Homepage = "https://mohamedtaqysalmi.github.io/strapi-sync-hub/"
 Repository = "https://github.com/mohamedtaqysalmi/strapi-sync-hub"
 Changelog = "https://github.com/mohamedtaqysalmi/strapi-sync-hub/blob/main/CHANGELOG.md"
+
+[project.scripts]
+strapi-sync-hub = "strapi_sync_hub.cli:main"
 
 [project.optional-dependencies]
 dev = [
@@ -57,6 +60,8 @@ select = ["E", "F", "W", "I", "B", "UP", "SIM", "C4", "RUF"]
 [tool.mypy]
 strict = true
 files = ["src", "tests"]
+explicit_package_bases = true
+mypy_path = ["src", "tests"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

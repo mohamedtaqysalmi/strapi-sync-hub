@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="strapi-sync-hub">
+  <rect width="64" height="64" fill="#07141a"/>
+  <path d="M12 32h16l6-10 6 20 6-10h6" fill="none" stroke="#2ec4b6" stroke-width="4" stroke-linecap="square"/>
+  <circle cx="12" cy="32" r="3" fill="#f4a261"/>
+  <circle cx="52" cy="32" r="3" fill="#2ec4b6"/>
+</svg>

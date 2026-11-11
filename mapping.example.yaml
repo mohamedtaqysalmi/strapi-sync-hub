@@ -2,6 +2,8 @@
 content_types:
   article:
     index: articles
+    # Strapi REST path for full-reindex (GET /api/{api_id}). Defaults to index when omitted.
+    api_id: articles
     # Strapi 5 uses documentId; Strapi 4 entries only have id.
     id_field: documentId
     fields:

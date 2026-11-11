@@ -2,31 +2,31 @@
 
 A small FastAPI service that receives Strapi webhook events and syncs content to Meilisearch or a generic JSON webhook target.
 
-**Status: early development.** The receiver, YAML mapping and idempotent upserts exist and are unit tested. It has not been run against a real Strapi or a real Meilisearch yet, and there are no retries, so treat it as unfinished.
+**Status: v0.1.0.** Receiver, YAML mapping, idempotent upserts, retries with backoff, dead-letter JSONL, dry-run, full-reindex CLI, and a docker-compose demo are in place. Contract fixtures are still hand-written from Strapi docs (not recorded from a live instance). The compose “Strapi” service is a stand-in that speaks the same Content API / webhook envelope.
 
 ## What works
 
 - `POST /webhook` accepts Strapi `entry.create`, `entry.update`, `entry.publish`, `entry.unpublish` and `entry.delete` events.
-- Each request must carry a shared secret in a header (default `X-Sync-Secret`). It is compared in constant time. A missing header gets 401, a wrong one 403.
-- A YAML file maps each content type to a target index, picks and renames fields, and names the document id field. Validation errors name the content type and field.
-- Targets: Meilisearch over its REST API, and a generic JSON webhook that receives `{action, index, id, updatedAt, document}` with an `Idempotency-Key` header.
-- Upserts are idempotent. Every synced document carries `_source_updated_at`; an event whose `updatedAt` is not newer than what the target holds is skipped. Delivering the same event twice, or an old one after a new one, leaves the newer document in place.
-- `entry.unpublish` and `entry.delete` remove the document. Deleting something already gone is fine.
-- Drafts (`publishedAt` is null on a create, update or publish event) are skipped, so unpublished content does not become searchable.
-- Events for content types that are not in the mapping, and other event types, are acknowledged and ignored.
+- Shared secret in a header (default `X-Sync-Secret`), compared in constant time.
+- YAML maps each content type to a target index, field renames, document id field, and optional `api_id` for reindex.
+- Meilisearch and JSON webhook targets with idempotent upserts (`_source_updated_at`).
+- Retries with exponential backoff; exhausted failures append to a dead-letter JSONL file and return `dead_lettered`.
+- `STRAPI_SYNC_DRY_RUN=true` and `strapi-sync-hub reindex --dry-run` plan writes without calling the target.
+- `strapi-sync-hub reindex` pulls published entries from a Strapi Content API and upserts them.
+- Docker demo: Meilisearch + stand-in CMS + hub + seed (`demo/`).
+- Pages site with an in-browser mapping generator: https://mohamedtaqysalmi.github.io/strapi-sync-hub/
 
-## What is not built
+## What is still open
 
-- Retries with backoff and a dead-letter log. If the target is down the request fails with 502 and the event is lost.
-- Full reindex, dry-run mode, and a docker-compose demo.
-- Ordering guarantees across restarts for the webhook target: it remembers the newest `updatedAt` per document in memory only.
-- Protection against concurrent deliveries of the same document to Meilisearch. The stale check is a read followed by a write.
-- Meilisearch applies writes as asynchronous tasks. The target only checks that the task was queued.
-- An update that arrives after a delete can bring the document back, because nothing records deletions.
+- Ordering guarantees across restarts for the webhook target (in-memory latest `updatedAt`).
+- Concurrent deliveries of the same document to Meilisearch can race.
+- Meilisearch task success is not awaited (queue acceptance only).
+- An update after a delete can resurrect a document.
+- Dead-letter replay CLI and recorded live-Strapi fixtures.
 
 ## Configuration
 
-Settings come from environment variables and are validated at startup, so a bad config stops the process with a list of what is wrong. See [.env.example](.env.example).
+See [.env.example](.env.example). Mapping example: [mapping.example.yaml](mapping.example.yaml).
 
 | Variable | Meaning |
 | --- | --- |
@@ -34,60 +34,40 @@ Settings come from environment variables and are validated at startup, so a bad 
 | `STRAPI_SYNC_SECRET_HEADER` | Header carrying the secret, default `X-Sync-Secret` |
 | `STRAPI_SYNC_MAPPING` | Path to the mapping YAML, default `mapping.yaml` |
 | `STRAPI_SYNC_TARGET` | `meilisearch` or `webhook` |
-| `MEILISEARCH_URL`, `MEILISEARCH_API_KEY` | Meilisearch target (key optional) |
-| `WEBHOOK_TARGET_URL`, `WEBHOOK_TARGET_TOKEN` | JSON webhook target (token optional) |
-
-Mapping example (also in [mapping.example.yaml](mapping.example.yaml)):
-
-```yaml
-content_types:
-  article:            # the "model" value in the Strapi payload
-    index: articles
-    id_field: documentId
-    fields:
-      title: title
-      slug: slug
-      body: content   # renamed
-```
-
-`fields` can also be a plain list of names to keep unchanged. `id` and `_source_updated_at` are reserved names in the target document.
-
-In Strapi, add a webhook pointing at `/webhook` with a custom header holding the same secret, and enable the entry events you want.
+| `MEILISEARCH_URL`, `MEILISEARCH_API_KEY` | Meilisearch target |
+| `WEBHOOK_TARGET_URL`, `WEBHOOK_TARGET_TOKEN` | JSON webhook target |
+| `STRAPI_SYNC_MAX_RETRIES` | Attempts per target call, default `3` |
+| `STRAPI_SYNC_RETRY_BASE_SECONDS` | Backoff base, default `0.5` |
+| `STRAPI_SYNC_DEAD_LETTER_PATH` | JSONL path, default `dead-letter.jsonl` |
+| `STRAPI_SYNC_DRY_RUN` | `true` to plan only |
+| `STRAPI_URL`, `STRAPI_API_TOKEN` | Used by `reindex` |
 
 ## Running
 
 ```bash
-cp .env.example .env   # then edit; export the variables however you prefer
+cp .env.example .env
 uvicorn --factory strapi_sync_hub.main:create_app_from_env
+strapi-sync-hub reindex --dry-run
+```
+
+Demo stack:
+
+```bash
+cd demo
+docker compose up --build
 ```
 
 ## Tests
 
-The Strapi payloads in `tests/fixtures/handwritten_from_docs_strapi_events.json` are **hand-written from the Strapi documentation, not recorded from a running Strapi**. The contract tests show the receiver handles that shape. They do not prove it matches a real instance, and replacing the fixture with recorded payloads is still to do.
-
-The Meilisearch tests use an in-process fake of the three endpoints the target calls, through an httpx mock transport. No network is used and no real Meilisearch has been involved.
-
-## Development
-
-Requires Python 3.11 or newer.
-
 ```bash
-python -m venv .venv
-.venv/Scripts/activate        # Windows; on Linux/macOS: source .venv/bin/activate
 pip install -e ".[dev]"
-pre-commit install
-```
-
-Run the checks:
-
-```bash
 ruff check .
 ruff format --check .
 mypy
 pytest
 ```
 
-`pytest` reports coverage and fails below 85%.
+Coverage fails below 85%. See [QA.md](QA.md) and [TEST_REPORT.md](TEST_REPORT.md).
 
 ## License
 

@@ -1,0 +1,10 @@
+content_types:
+  article:
+    index: articles
+    api_id: articles
+    id_field: documentId
+    fields:
+      title: title
+      slug: slug
+      body: content
+      publishedAt: published_at
